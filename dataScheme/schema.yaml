@@ -1,0 +1,133 @@
+columns:
+  country: str
+  device_type: str
+  verification_status: str
+  player_segment: str
+  days_since_registration: int64
+  deposit_count_30d: int64
+  deposit_amount_30d: float64
+  withdrawal_count_30d: int64
+  failed_deposit_count_30d: int64
+  session_count_30d: int64
+  bet_count_30d: int64
+  avg_bet_amount: float64
+  avg_session_minutes: float64
+  night_session_ratio: float64
+  loss_amount_30d: float64
+  loss_streak_max: int64
+  chasing_score: float64
+  bonus_claim_count_30d: int64
+  bonus_to_deposit_ratio: float64
+  is_risky_player: int64
+
+numerical_columns:
+  - days_since_registration
+  - deposit_count_30d
+  - deposit_amount_30d
+  - withdrawal_count_30d
+  - failed_deposit_count_30d
+  - session_count_30d
+  - bet_count_30d
+  - avg_bet_amount
+  - avg_session_minutes
+  - night_session_ratio
+  - loss_amount_30d
+  - loss_streak_max
+  - chasing_score
+  - bonus_claim_count_30d
+  - bonus_to_deposit_ratio
+
+categorical_columns:
+  - country
+  - device_type
+  - verification_status
+  - player_segment
+
+target_column: is_risky_player
+
+drop_columns:
+  - _id
+
+domain_values:
+  country:
+    - UA
+    - PL
+    - DE
+    - ES
+    - BR
+    - IN
+
+  device_type:
+    - android
+    - ios
+    - desktop
+
+  verification_status:
+    - verified
+    - pending
+    - limited
+
+  player_segment:
+    - casual
+    - regular
+    - engaged
+    - risk_prone
+
+value_ranges:
+  days_since_registration:
+    min: 0
+  deposit_count_30d:
+    min: 0
+  deposit_amount_30d:
+    min: 0.0
+  withdrawal_count_30d:
+    min: 0
+  failed_deposit_count_30d:
+    min: 0
+  session_count_30d:
+    min: 0
+  bet_count_30d:
+    min: 0
+  avg_bet_amount:
+    min: 0.0
+  avg_session_minutes:
+    min: 0.0
+  night_session_ratio:
+    min: 0.0
+    max: 1.0
+  loss_amount_30d:
+    min: 0.0
+  loss_streak_max:
+    min: 0
+  chasing_score:
+    min: 0.0
+  bonus_claim_count_30d:
+    min: 0
+  bonus_to_deposit_ratio:
+    min: 0.0
+    max: 1.0
+  is_risky_player:
+    min: 0
+    max: 1
+
+required_columns:
+  - country
+  - device_type
+  - verification_status
+  - player_segment
+  - days_since_registration
+  - deposit_count_30d
+  - deposit_amount_30d
+  - withdrawal_count_30d
+  - failed_deposit_count_30d
+  - session_count_30d
+  - bet_count_30d
+  - avg_bet_amount
+  - avg_session_minutes
+  - night_session_ratio
+  - loss_amount_30d
+  - loss_streak_max
+  - chasing_score
+  - bonus_claim_count_30d
+  - bonus_to_deposit_ratio
+  - is_risky_player
