@@ -15,8 +15,10 @@ jobs:
 
     env:
       AWS_REGION: ${{ vars.AWS_REGION }}
-      ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
       AWS_ROLE_TO_ASSUME: ${{ vars.AWS_ROLE_TO_ASSUME }}
+      ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+      EC2_HOST: ${{ vars.EC2_HOST }}
+      EC2_USER: ${{ vars.EC2_USER }}
 
     steps:
       - name: Checkout
@@ -34,31 +36,32 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t $ECR_REPOSITORY:${{ github.sha }} .
-          docker tag $ECR_REPOSITORY:${{ github.sha }} \
-            ${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:${{ github.sha }}
-          docker tag $ECR_REPOSITORY:${{ github.sha }} \
-            ${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:latest
+          set -e
+          docker build -t $ECR_REPOSITORY:${GITHUB_SHA} .
+          docker tag $ECR_REPOSITORY:${GITHUB_SHA} ${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:${GITHUB_SHA}
+          docker tag $ECR_REPOSITORY:${GITHUB_SHA} ${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:latest
 
       - name: Push Docker image to ECR
         run: |
-          docker push ${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:${{ github.sha }}
+          set -e
+          docker push ${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:${GITHUB_SHA}
           docker push ${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:latest
 
-      - name: Write SSH key
+      - name: Prepare SSH key
         run: |
+          set -e
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ vars.EC2_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts
 
       - name: Deploy on EC2
         run: |
-          ssh ${{ vars.EC2_USER }}@${{ vars.EC2_HOST }} << 'EOF'
-            aws ecr get-login-password --region ${{ vars.AWS_REGION }} | \
-              docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
-
-            cd /home/ubuntu/isPlayerRisky
+          ssh ${EC2_USER}@${EC2_HOST} << EOF
+            set -e
+            aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
+            cd /home/${EC2_USER}/isPlayerRisky
             docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml up -d
+            docker image prune -f
           EOF
