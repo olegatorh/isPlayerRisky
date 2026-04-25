@@ -1,5 +1,6 @@
 .csv
 Datasets
+.claude
 
 # Python
 __pycache__/
@@ -18,7 +19,6 @@ env/
 # IDE
 .idea/
 .vscode/
-
 # OS
 .DS_Store
 
@@ -44,3 +44,4 @@ production_model/
 # Airflow / MLflow local files if needed
 logs/
 mlruns/
+simple_auth_manager_passwords.json
