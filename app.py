@@ -5,7 +5,7 @@ from src.components.model_training import ModelTraining
 from src.entity.config_entity import TrainingPipelineConfig, DataIngestionConfig, DataValidationConfig, \
     DataTransformationConfig, ModelTrainingConfig
 from src.logging.logger import logging
-
+from src.utils.save_final_model import save_final_model
 
 if __name__ == "__main__":
     logging.info("Starting Configuration")
@@ -30,3 +30,7 @@ if __name__ == "__main__":
     model_training = ModelTraining(model_training_config, data_transformation_artifact)
     model_training_artifact = model_training.initiate_model_training()
     logging.info("Finish Model Training")
+    logging.info("Finish Model Saving start")
+    save_final_model(model_training_artifact.trained_model_file_path,
+                     data_transformation_artifact.transformed_preprocessor_file_path)
+    logging.info("Finish Model Saving finished")

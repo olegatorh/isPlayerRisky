@@ -240,7 +240,7 @@ def generate_gambling_rg_dataset(n_rows=30000, seed=42):
 
 if __name__ == "__main__":
     timestamp = datetime.datetime.now().strftime("%Y:%m:%d|%H:%M:%S")
-    df = generate_gambling_rg_dataset(n_rows=30000, seed=42)
+    df = generate_gambling_rg_dataset(n_rows=9, seed=42)
     df.to_csv(f"syntheticDatasetGeneration/Datasets/gambling_rg_dataset({timestamp}).csv", index=False)
 
     print(df.head())

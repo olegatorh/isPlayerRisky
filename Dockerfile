@@ -1,4 +1,13 @@
-FROM ubuntu:latest
-LABEL authors="olehpron"
+FROM python:3.11-slim
 
-ENTRYPOINT ["top", "-b"]
+WORKDIR /app
+COPY . /app
+
+
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+EXPOSE 8002
+CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8002"]

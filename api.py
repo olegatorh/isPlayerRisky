@@ -7,6 +7,7 @@ from uvicorn import run as app_run
 
 from src.exception.exception import RiskyException
 from src.utils.main_utils import load_object
+from src.utils.ml_utils.estimator import RiskyModel
 
 app = FastAPI()
 
@@ -25,12 +26,16 @@ async def health():
 
 
 @app.post("/predict")
-async def predict_route(request: Request, file: UploadFile = File(...)):
+async def predict_route(file: UploadFile = File(...)):
     try:
         df = pd.read_csv(file.file)
-        preprocessor_path = ""
-        preprocessor = load_object("final_model/preprocessor.pkl")
-        final_model = load_object("final_model/model.pkl")
+        print(df.head())
+
+        final_model = load_object("final_model/final_model.pkl")
+        predict = final_model.predict(df)
+
+        return Response(f"{predict.tolist()}", status_code=200)
+
     except Exception as e:
         raise RiskyException(e, sys)
 

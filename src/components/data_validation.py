@@ -3,6 +3,14 @@ import sys
 
 import pandas as pd
 from pandas import read_csv
+from pandas.api.types import (
+    is_object_dtype,
+    is_string_dtype,
+    is_numeric_dtype,
+    is_integer_dtype,
+    is_float_dtype,
+    is_bool_dtype,
+)
 
 from src.entity.artifact_entity import DataIngestionArtifact, DataValidationArtifact
 from src.entity.config_entity import DataValidationConfig
@@ -20,73 +28,131 @@ class DataValidation:
         except Exception as e:
             raise RiskyException(e, sys)
 
-
-    def validate_number_columns(self, dataframe: pd.DataFrame):
+    def validate_columns(self, dataframe: pd.DataFrame) -> tuple[bool, list[str]]:
         try:
-            number_columns = len(self.schema_config["columns"])
-            if len(dataframe.columns) != number_columns:
-                return False
-            return True
+            expected_columns = set(self.schema_config["columns"].keys())
+            actual_columns = set(dataframe.columns)
+
+            missing_columns = sorted(expected_columns - actual_columns)
+            extra_columns = sorted(actual_columns - expected_columns)
+
+            errors = []
+
+            if missing_columns:
+                errors.append(f"Missing columns: {missing_columns}")
+
+            if extra_columns:
+                errors.append(f"Unexpected columns: {extra_columns}")
+
+            return len(errors) == 0, errors
+
         except Exception as e:
             raise RiskyException(e, sys)
 
-    def validate_column_types(self, dataframe: pd.DataFrame) -> bool:
+    def _is_expected_dtype(self, series: pd.Series, expected_dtype: str) -> bool:
+        expected_dtype = expected_dtype.lower()
+
+        if expected_dtype in ("str", "string", "object", "categorical", "category"):
+            return is_object_dtype(series) or is_string_dtype(series)
+
+        if expected_dtype in ("int", "int64", "integer"):
+            return is_integer_dtype(series)
+
+        if expected_dtype in ("float", "float64", "double"):
+            return is_float_dtype(series)
+
+        if expected_dtype in ("number", "numeric"):
+            return is_numeric_dtype(series)
+
+        if expected_dtype in ("bool", "boolean"):
+            return is_bool_dtype(series)
+
+        return str(series.dtype).lower() == expected_dtype
+
+    def validate_column_types(self, dataframe: pd.DataFrame) -> tuple[bool, list[str]]:
         try:
             expected_columns = self.schema_config["columns"]
-            logging.info("Checking required column types")
+            errors = []
 
-            actual_dtypes = dataframe.dtypes.to_dict()
+            logging.info("Checking required column types")
 
             for column_name, expected_dtype in expected_columns.items():
                 if column_name not in dataframe.columns:
-                    logging.error(f"Column '{column_name}' is missing in dataframe")
-                    return False
+                    errors.append(f"Column '{column_name}' is missing in dataframe")
+                    continue
 
-                actual_dtype = str(actual_dtypes[column_name])
-
-                if actual_dtype != expected_dtype:
-                    logging.error(
+                if not self._is_expected_dtype(dataframe[column_name], expected_dtype):
+                    errors.append(
                         f"Column '{column_name}' type mismatch. "
-                        f"Expected: {expected_dtype}, Found: {actual_dtype}"
+                        f"Expected: {expected_dtype}, Found: {dataframe[column_name].dtype}"
                     )
-                    return False
+
+            if errors:
+                for error in errors:
+                    logging.error(error)
+                return False, errors
 
             logging.info("All column types are valid")
-            return True
+            return True, []
 
         except Exception as e:
             raise RiskyException(e, sys)
 
-    def validate_missing_values(self, dataframe: pd.DataFrame) -> bool:
+
+    def validate_missing_values(self, dataframe: pd.DataFrame) -> tuple[bool, list[str], list[str]]:
         try:
             logging.info("Checking missing values in dataframe")
+
+            warnings = []
+            errors = []
 
             missing_percentage = (dataframe.isnull().sum() / len(dataframe)) * 100
             missing_percentage = missing_percentage[missing_percentage > 0]
 
             if missing_percentage.empty:
                 logging.info("No missing values found in dataframe")
-                return True
+                return True, warnings, errors
+
+            max_missing_threshold = self.schema_config.get("max_missing_threshold", 20.0)
+            warning_missing_threshold = self.schema_config.get("warning_missing_threshold", 1.0)
 
             for column, percentage in missing_percentage.items():
-                logging.warning(
-                    f"Column '{column}' has {round(percentage, 2)}% missing values"
-                )
+                msg = f"Column '{column}' has {round(percentage, 2)}% missing values"
 
-            max_missing_threshold = 20.0
-            for column, percentage in missing_percentage.items():
                 if percentage > max_missing_threshold:
-                    logging.error(
-                        f"Column '{column}' exceeds missing value threshold. "
-                        f"Missing: {round(percentage, 2)}%, Threshold: {max_missing_threshold}%"
+                    errors.append(
+                        f"{msg}. Threshold exceeded: {max_missing_threshold}%"
                     )
-                    return False
+                elif percentage > warning_missing_threshold:
+                    warnings.append(msg)
 
-            logging.info("Missing value validation completed successfully")
-            return True
+            for warning in warnings:
+                logging.warning(warning)
+
+            for error in errors:
+                logging.error(error)
+
+            return len(errors) == 0, warnings, errors
 
         except Exception as e:
             raise RiskyException(e, sys)
+
+    def validate_dataframe(self, dataframe: pd.DataFrame, df_name: str) -> dict:
+        try:
+            schema_status, schema_errors = self.validate_columns(dataframe)
+            type_status, type_errors = self.validate_column_types(dataframe)
+            missing_status, missing_warnings, missing_errors = self.validate_missing_values(dataframe)
+
+            return {
+                "dataframe_name": df_name,
+                "status": all([schema_status, type_status, missing_status]),
+                "warnings": missing_warnings,
+                "errors": schema_errors + type_errors + missing_errors
+            }
+
+        except Exception as e:
+            raise RiskyException(e, sys)
+
 
     def data_drift_validation(self, base_df: pd.DataFrame, current_df: pd.DataFrame) -> dict:
         try:
@@ -145,28 +211,22 @@ class DataValidation:
         except Exception as e:
             raise RiskyException(e, sys)
 
+
     def initiate_data_validation(self):
         try:
             train_df = pd.read_csv(self.data_ingestion_artifact.trained_file_path)
             test_df = pd.read_csv(self.data_ingestion_artifact.test_file_path)
 
-            columns_status = self.validate_number_columns(train_df)
-            logging.info(f"Validation status of number of columns: {columns_status}")
+            train_validation = self.validate_dataframe(train_df, "train")
+            test_validation = self.validate_dataframe(test_df, "test")
 
-            column_types_status = self.validate_column_types(train_df)
-            logging.info(f"Validation status of column types: {column_types_status}")
+            logging.info(f"Train validation status: {train_validation['status']}")
+            logging.info(f"Test validation status: {test_validation['status']}")
 
-            missing_values_status = self.validate_missing_values(train_df)
-            logging.info(f"Validation status of missing values: {missing_values_status}")
+            drift_report = self.data_drift_validation(train_df, test_df)
+            logging.info("Data drift validation completed")
 
-            drift_status = self.data_drift_validation(train_df, test_df)
-            logging.info(f"Data drift status: {drift_status}")
-
-            validation_status = all([
-                columns_status,
-                column_types_status,
-                missing_values_status
-            ])
+            validation_status = train_validation["status"] and test_validation["status"]
 
             os.makedirs(self.data_validation_config.data_validation_dir, exist_ok=True)
 
@@ -177,6 +237,7 @@ class DataValidation:
 
             if validation_status:
                 os.makedirs(self.data_validation_config.validated_data_dir, exist_ok=True)
+
                 train_df.to_csv(self.data_validation_config.valid_train_file, index=False, header=True)
                 test_df.to_csv(self.data_validation_config.valid_test_file, index=False, header=True)
 
@@ -186,12 +247,15 @@ class DataValidation:
                 logging.info("Data validation completed successfully. Valid train/test files saved.")
             else:
                 os.makedirs(self.data_validation_config.invalid_data_dir, exist_ok=True)
+
                 train_df.to_csv(self.data_validation_config.invalid_train_file, index=False, header=True)
                 test_df.to_csv(self.data_validation_config.invalid_test_file, index=False, header=True)
 
                 invalid_train_file = self.data_validation_config.invalid_train_file
                 invalid_test_file = self.data_validation_config.invalid_test_file
 
+                logging.error(f"Train validation errors: {train_validation['errors']}")
+                logging.error(f"Test validation errors: {test_validation['errors']}")
                 logging.info("Data validation failed. Invalid train/test files saved.")
 
             data_validation_artifact = DataValidationArtifact(

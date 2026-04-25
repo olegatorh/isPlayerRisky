@@ -1,6 +1,8 @@
 import os
 import sys
 
+import mlflow
+import pandas as pd
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, AdaBoostClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.tree import DecisionTreeClassifier
@@ -12,6 +14,9 @@ from src.utils.main_utils import load_object, save_object, load_numpy_array_data
 from src.utils.ml_utils.classification_score import get_classification_score
 from src.utils.ml_utils.estimator import RiskyModel
 from src.utils.ml_utils.evaluator import evaluate_models
+from sklearn.metrics import confusion_matrix
+import matplotlib.pyplot as plt
+from sklearn.metrics import ConfusionMatrixDisplay
 
 
 class ModelTraining:
@@ -25,76 +30,105 @@ class ModelTraining:
 
 
     def train_model(self, x_train, y_train, x_test, y_test):
-        try:
-            models = {
-                "Random Forest": RandomForestClassifier(verbose=1, random_state=42),
-                "Decision Tree": DecisionTreeClassifier(random_state=42),
-                "Gradient Boosting": GradientBoostingClassifier(verbose=1, random_state=42),
-                "Logistic Regression": LogisticRegression(verbose=1, max_iter=1000, random_state=42),
-                "AdaBoost": AdaBoostClassifier(random_state=42)
-            }
-
-            params = {
-
-                "Decision Tree": {
-                    "criterion": ["gini", "entropy"],
-                    "max_depth": [None, 10, 20],
-                    "min_samples_split": [2, 5],
-                },
-
-                "Random Forest": {
-                    "n_estimators": [50, 100],
-                    "max_depth": [None, 10],
-                    "max_features": ["sqrt"],
-                },
-
-                "Gradient Boosting": {
-                    "learning_rate": [0.1, 0.05],
-                    "n_estimators": [50, 100],
-                    "subsample": [0.8, 1.0],
-                },
-
-                "Logistic Regression": {
-                    "C": [0.1, 1, 10],
-                    "solver": ["lbfgs"],
-                    "max_iter": [100],
-                },
-
-                "AdaBoost": {
-                    "n_estimators": [50, 100],
-                    "learning_rate": [0.1, 0.05],
+        with mlflow.start_run(run_name="model_training", nested=True):
+            try:
+                models = {
+                    "Random Forest": RandomForestClassifier(verbose=1, random_state=42),
+                    "Decision Tree": DecisionTreeClassifier(random_state=42),
+                    "Gradient Boosting": GradientBoostingClassifier(verbose=1, random_state=42),
+                    "Logistic Regression": LogisticRegression(verbose=1, max_iter=1000, random_state=42),
+                    "AdaBoost": AdaBoostClassifier(random_state=42)
                 }
-            }
 
-            model_report, fitted_models = evaluate_models(
-                x_train=x_train,
-                y_train=y_train,
-                x_test=x_test,
-                y_test=y_test,
-                models=models,
-                params=params
-            )
-            best_model_name = max(model_report, key=model_report.get)
-            best_model = fitted_models[best_model_name]
+                params = {
 
-            y_train_prediction = best_model.predict(x_train)
-            classification_train_metric = get_classification_score(y_train, y_train_prediction)
-            y_test_prediction = best_model.predict(x_test)
-            classification_test_metric = get_classification_score(y_test, y_test_prediction)
-            preprocessor = load_object(self.data_transformation_artifact.transformed_preprocessor_file_path)
-            os.makedirs(self.model_training_config.model_dir, exist_ok=True)
+                    "Decision Tree": {
+                        "criterion": ["gini", "entropy"],
+                        "max_depth": [None, 10, 20],
+                        "min_samples_split": [2, 5],
+                    },
 
-            risky_model = RiskyModel(preprocessor=preprocessor, model=best_model)
-            save_object(self.model_training_config.trained_model_file_path, risky_model)
-            model_trainer_artifact = ModelTrainingArtifact(
-                trained_model_file_path=self.model_training_config.trained_model_file_path,
-                train_metric_artifact=classification_train_metric,
-                test_metric_artifact=classification_test_metric
-            )
-            return model_trainer_artifact
+                    "Random Forest": {
+                        "n_estimators": [50, 100],
+                        "max_depth": [None, 10],
+                        "max_features": ["sqrt"],
+                    },
 
-        except Exception as e:
-            raise RiskyException(e, sys)
+                    "Gradient Boosting": {
+                        "learning_rate": [0.1, 0.05],
+                        "n_estimators": [50, 100],
+                        "subsample": [0.8, 1.0],
+                    },
+
+                    "Logistic Regression": {
+                        "C": [0.1, 1, 10],
+                        "solver": ["lbfgs"],
+                        "max_iter": [100],
+                    },
+
+                    "AdaBoost": {
+                        "n_estimators": [50, 100],
+                        "learning_rate": [0.1, 0.05],
+                    }
+                }
+
+
+
+                model_report, fitted_models = evaluate_models(
+                    x_train=x_train,
+                    y_train=y_train,
+                    x_test=x_test,
+                    y_test=y_test,
+                    models=models,
+                    params=params
+                )
+                best_model_name = max(model_report, key=model_report.get)
+                best_model = fitted_models[best_model_name]
+
+                y_train_prediction = best_model.predict(x_train)
+                classification_train_metric = get_classification_score(y_train, y_train_prediction)
+                y_test_prediction = best_model.predict(x_test)
+                classification_test_metric = get_classification_score(y_test, y_test_prediction)
+                preprocessor = load_object(self.data_transformation_artifact.transformed_preprocessor_file_path)
+                os.makedirs(self.model_training_config.model_dir, exist_ok=True)
+
+                risky_model = RiskyModel(preprocessor=preprocessor, model=best_model)
+                save_object(self.model_training_config.trained_model_file_path, risky_model)
+                model_trainer_artifact = ModelTrainingArtifact(
+                    trained_model_file_path=self.model_training_config.trained_model_file_path,
+                    train_metric_artifact=classification_train_metric,
+                    test_metric_artifact=classification_test_metric
+                )
+
+
+                #mlflow
+                mlflow.log_param("best_model_name", best_model_name)
+                mlflow.log_param("count_of_models", len(models))
+                mlflow.log_param("len_of_test_data", len(x_test))
+                mlflow.log_param("len_of_train_data", len(x_train))
+                mlflow.log_metric("best_model_score", float(model_report[best_model_name]))
+
+                mlflow.log_metric("train_f1_score", float(classification_train_metric.f1_score))
+                mlflow.log_metric("train_precision_score", float(classification_train_metric.precision_score))
+                mlflow.log_metric("train_recall_score", float(classification_train_metric.recall_score))
+                mlflow.log_metric("train_model_accuracy_score", float(classification_train_metric.accuracy_score))
+
+
+                mlflow.log_metric("test_f1_score", float(classification_test_metric.f1_score))
+                mlflow.log_metric("test_precision_score", float(classification_test_metric.precision_score))
+                mlflow.log_metric("test_recall_score", float(classification_test_metric.recall_score))
+                mlflow.log_metric("test_model_accuracy_score", float(classification_test_metric.accuracy_score))
+
+                tn, fp, fn, tp = confusion_matrix(y_test, y_test_prediction).ravel()
+                mlflow.log_metric("test_true_negative", int(tn))
+                mlflow.log_metric("test_false_positive", int(fp))
+                mlflow.log_metric("test_false_negative", int(fn))
+                mlflow.log_metric("test_true_positive", int(tp))
+
+                return model_trainer_artifact
+
+            except Exception as e:
+                raise RiskyException(e, sys)
 
     def initiate_model_training(self):
         try:

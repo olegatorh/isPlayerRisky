@@ -34,5 +34,9 @@ MODEL_TRAINED_DIR="trained_model"
 MODEL_EXPECTED_SCORE=0.6
 MODEL_OVER_FITTING_UNDER_FITTING_THRESHOLD=0.05
 
+#final model
+FINAL_MODEL_DIR="final_model"
+FINAL_MODEL_NAME="final_model.pkl"
+
 TRAIN_FILE_NAME="train.csv"
 TEST_FILE_NAME="test.csv"

@@ -1,0 +1,11 @@
+pandas
+numpy
+scikit-learn
+pymongo
+python-dotenv
+PyYAML
+fastapi
+uvicorn
+mlflow
+python-multipart
+pymongo
