@@ -25,7 +25,7 @@ async def health():
         raise RiskyException(e, sys)
 
 
-@app.post("/predict")
+@app.post("/predict", description="predict is player risky" )
 async def predict_route(file: UploadFile = File(...)):
     try:
         df = pd.read_csv(file.file)
