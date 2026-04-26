@@ -1,4 +1,4 @@
-name: Deploy to EC2
+name: Deploy to amazon
 
 on:
   push:
@@ -11,14 +11,13 @@ permissions:
 
 jobs:
   deploy:
+    name: Continues integration
     runs-on: ubuntu-latest
 
     env:
       AWS_REGION: ${{ vars.AWS_REGION }}
       AWS_ROLE_TO_ASSUME: ${{ vars.AWS_ROLE_TO_ASSUME }}
       ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
-      EC2_HOST: ${{ vars.EC2_HOST }}
-      EC2_USER: ${{ vars.EC2_USER }}
 
     steps:
       - name: Checkout
@@ -46,22 +45,3 @@ jobs:
           set -e
           docker push ${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:${GITHUB_SHA}
           docker push ${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:latest
-
-      - name: Prepare SSH key
-        run: |
-          set -e
-          mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts
-
-      - name: Deploy on EC2
-        run: |
-          ssh ${EC2_USER}@${EC2_HOST} << EOF
-            set -e
-            aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
-            cd /home/${EC2_USER}/isPlayerRisky
-            docker compose -f docker-compose.prod.yml pull
-            docker compose -f docker-compose.prod.yml up -d
-            docker image prune -f
-          EOF
