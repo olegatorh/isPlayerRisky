@@ -17,10 +17,9 @@ jobs:
     env:
       AWS_REGION: ${{ vars.AWS_REGION }}
       AWS_ROLE_TO_ASSUME: ${{ vars.AWS_ROLE_TO_ASSUME }}
-      ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
-      ECS_CLUSTER: ${{ vars.ECS_CLUSTER }}
-      ECS_SERVICE: ${{ vars.ECS_SERVICE }}
-      ECS_TASK_DEFINITION: ${{ vars.ECS_TASK_DEFINITION }}
+#      ECS_CLUSTER: ${{ vars.ECS_CLUSTER }}
+#      ECS_SERVICE: ${{ vars.ECS_SERVICE }}
+#      ECS_TASK_DEFINITION: ${{ vars.ECS_TASK_DEFINITION }}
       CONTAINER_NAME: Main
 
     steps:
@@ -37,29 +36,42 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build Docker image
+      - name: Build Docker image App-api
         id: build-image
         env:
+          ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY_APP_API }}
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
+          IMAGE_TAG: is-player-risky-app-api
         run: |
           set -e
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-      - name: Render Amazon ECS task definition
-        id: task-def
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
-        with:
-          task-definition: ${{ env.ECS_TASK_DEFINITION }}
-          container-name: ${{ env.CONTAINER_NAME }}
-          image: ${{ steps.build-image.outputs.image }}
+      - name: Build Docker image Mlflow
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: is-player-risky-mlflow
+          ECR_REPOSITORY_MLFLOW: ${{ vars.ECR_REPOSITORY_MLFLOW }}
+        run: |
+          set -e
+          docker build -t $ECR_REGISTRY/ECR_REPOSITORY_MLFLOW/mlflow:$IMAGE_TAG ./mlflow
+          docker push $ECR_REGISTRY/ECR_REPOSITORY_MLFLOW/mlflow:$IMAGE_TAG
+          echo "image=$ECR_REGISTRY/ECR_REPOSITORY_MLFLOW/mlflow:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-      - name: Deploy Amazon ECS task definition
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
-        with:
-          task-definition: ${{ steps.task-def.outputs.task-definition }}
-          service: ${{ env.ECS_SERVICE }}
-          cluster: ${{ env.ECS_CLUSTER }}
-          wait-for-service-stability: true
+#      - name: Render Amazon ECS task definition
+#        id: task-def
+#        uses: aws-actions/amazon-ecs-render-task-definition@v1
+#        with:
+#          task-definition: ${{ env.ECS_TASK_DEFINITION }}
+#          container-name: ${{ env.CONTAINER_NAME }}
+#          image: ${{ steps.build-image.outputs.image }}
+#
+#      - name: Deploy Amazon ECS task definition
+#        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+#        with:
+#          task-definition: ${{ steps.task-def.outputs.task-definition }}
+#          service: ${{ env.ECS_SERVICE }}
+#          cluster: ${{ env.ECS_CLUSTER }}
+#          wait-for-service-stability: true
