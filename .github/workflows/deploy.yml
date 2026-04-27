@@ -37,7 +37,7 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Build Docker image App-api
-        id: build-image
+        id: build-image-app-api
         env:
           ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY_APP_API }}
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -49,16 +49,16 @@ jobs:
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
       - name: Build Docker image Mlflow
-        id: build-image
+        id: build-image-mlflow
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: is-player-risky-mlflow
           ECR_REPOSITORY_MLFLOW: ${{ vars.ECR_REPOSITORY_MLFLOW }}
         run: |
           set -e
-          docker build -t $ECR_REGISTRY/ECR_REPOSITORY_MLFLOW/mlflow:$IMAGE_TAG ./mlflow
-          docker push $ECR_REGISTRY/ECR_REPOSITORY_MLFLOW/mlflow:$IMAGE_TAG
-          echo "image=$ECR_REGISTRY/ECR_REPOSITORY_MLFLOW/mlflow:$IMAGE_TAG" >> $GITHUB_OUTPUT
+          docker build -t $ECR_REGISTRY/ECR_REPOSITORY_MLFLOW:$IMAGE_TAG ./mlflow
+          docker push $ECR_REGISTRY/ECR_REPOSITORY_MLFLOW:$IMAGE_TAG
+          echo "image=$ECR_REGISTRY/ECR_REPOSITORY_MLFLOW:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
 #      - name: Render Amazon ECS task definition
 #        id: task-def
